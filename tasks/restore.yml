@@ -22,10 +22,12 @@
   replace: dest={{ mysql_restore_dir }}/{{ database }}.sql regexp='(ENGINE=InnoDB)(.*)(ROW_FORMAT=[\w]+)([^;]*);' replace='\1\2\4ROW_FORMAT={{ mysql_restore_innodb_row_format }};'
   when: mysql_restore_innodb_row_format != False
 
-- name: Remove "{{ database }}" database table insert exclusions.
+- name: Remove database table insert exclusions.
   replace: dest={{ mysql_restore_dir }}/{{ database }}.sql regexp='^INSERT INTO `({{ item }})`.*$' replace=''
   with_items: "{{ mysql_restore_exclude_inserts | map(attribute='{{ database }}') | join('|') }}"
-  when: mysql_restore_exclude_inserts | length > 0
+  when:
+    - mysql_restore_exclude_inserts | length > 0
+    - item is defined
 
 - name: Import "{{ database }}" database backup into MySQL.
   mysql_db: name={{ database }} state=import target={{ mysql_restore_dir }}/{{ database }}.sql
