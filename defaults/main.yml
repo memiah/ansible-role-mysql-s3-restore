@@ -17,7 +17,7 @@ mysql_restore_remove_imported: True
 
 mysql_restore_databases: []
 
-mysql_restore_exclude_inserts: False
+mysql_restore_exclude_inserts: []
 
 mysql_restore_s3_bucket: False
 mysql_restore_s3_bucket_parent: False

@@ -1,0 +1,40 @@
+---
+- name: Download "{{ database }}" database backup from S3.
+  command: aws s3 cp s3://{{ mysql_restore_s3_bucket_url }}/{{ database }}{{ mysql_restore_s3_backup_extension }} {{ mysql_restore_dir_realpath }}/ --profile {{ mysql_restore_aws_profile }}
+  args:
+    creates: "{{ mysql_restore_dir_realpath }}/{{ database }}{{ mysql_restore_s3_backup_extension }}"
+  register: mysql_restore_s3_backup_download_result
+
+- name: Create "{{ database }}" database.
+  mysql_db: name={{ database }} state=present
+
+- name: Decrypt and decompress "{{ database }}" database backup.
+  shell: gpg --decrypt {{ mysql_restore_dir }}/{{ database }}{{ mysql_restore_s3_backup_extension }} | gunzip > {{ mysql_restore_dir }}/{{ database }}.sql
+  args:
+    creates: "{{ mysql_restore_dir }}/{{ database }}.sql"
+  register: mysql_restore_s3_decompress_result
+
+- name: Remove compressed "{{ database }}" database file.
+  file: path={{ mysql_restore_dir }}/{{ database }}{{ mysql_restore_s3_backup_extension }} state=absent
+  when: mysql_restore_remove_imported == True
+
+- name: Set "{{ database }}" database InnoDB row format.
+  replace: dest={{ mysql_restore_dir }}/{{ database }}.sql regexp='(ENGINE=InnoDB)(.*)(ROW_FORMAT=[\w]+)([^;]*);' replace='\1\2\4ROW_FORMAT={{ mysql_restore_innodb_row_format }};'
+  when: mysql_restore_innodb_row_format != False
+
+- name: Remove "{{ database }}" database table insert exclusions.
+  replace: dest={{ mysql_restore_dir }}/{{ database }}.sql regexp='^INSERT INTO `({{ item }})`.*$' replace=''
+  with_items: "{{ mysql_restore_exclude_inserts | map(attribute='{{ database }}') | join('|') }}"
+  when: mysql_restore_exclude_inserts | length > 0
+
+- name: Import "{{ database }}" database backup into MySQL.
+  mysql_db: name={{ database }} state=import target={{ mysql_restore_dir }}/{{ database }}.sql
+  changed_when: False
+  register: mysql_restore_s3_import_result
+
+- name: Flag "{{ database }}" database as imported.
+  file: path={{ mysql_restore_dir }}/{{ database }}.sql.imported state=touch
+
+- name: Remove imported "{{ database }}" database file.
+  file: path={{ mysql_restore_dir }}/{{ database }}.sql state=absent
+  when: mysql_restore_remove_imported == True

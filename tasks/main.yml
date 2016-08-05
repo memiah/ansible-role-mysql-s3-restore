@@ -2,7 +2,54 @@
 - include: gpg.yml
   when: mysql_restore_gpg_secret_key != False
 
-- include: setup.yml
-- include: download.yml
-- include: process.yml
-- include: import.yml
+- set_fact: mysql_restore_dir_realpath={{ mysql_restore_dir.rstrip('/') | realpath }}
+
+- name: Create folder to store backups.
+  file: path={{ mysql_restore_dir_realpath }} state=directory
+
+- name: Determine all imported databases
+  shell: find {{ mysql_restore_dir_realpath }} -name "*.imported" -exec basename {} \; | cut -d "." -f 1
+  register: mysql_restore_imported_result
+  changed_when: False
+
+- set_fact: mysql_restore_imported={{ mysql_restore_imported_result.stdout_lines | default([]) }}
+
+- set_fact: mysql_restore_s3_bucket_path={{ mysql_restore_s3_bucket_parent.rstrip('/') }}
+  when: mysql_restore_s3_bucket_parent != False
+
+- set_fact: mysql_restore_s3_bucket_path={{ mysql_restore_s3_bucket.rstrip('/') }}
+  when: mysql_restore_s3_bucket != False
+
+- name: Determine latest MySQL backup in directory.
+  shell: aws s3 ls s3://{{ mysql_restore_s3_bucket_path }}/ --profile {{ mysql_restore_aws_profile }} | sort | tail -n 1 | awk '{print $2}'
+  register: mysql_restore_s3_backup_latest_result
+  changed_when: False
+  failed_when: mysql_restore_s3_backup_latest_result.stderr != ""
+  when: mysql_restore_s3_bucket_parent != False
+
+- set_fact: mysql_restore_s3_bucket_url={{ mysql_restore_s3_bucket_path }}/{{ mysql_restore_s3_backup_latest_result.stdout.rstrip('/') }}
+  when: mysql_restore_s3_bucket_parent != False
+
+- set_fact: mysql_restore_s3_bucket_url={{ mysql_restore_s3_bucket_path }}
+  when: mysql_restore_s3_bucket != False
+
+- name: Determine list of databases in the bucket
+  shell: aws s3 ls s3://{{ mysql_restore_s3_bucket_url }}/ --profile {{ mysql_restore_aws_profile }} | grep "{{ mysql_restore_s3_backup_extension }}" | awk '{print $4}' | cut -d "." -f 1
+  register: mysql_restore_s3_backup_list_result
+  changed_when: False
+  when: mysql_restore_databases | length == 0
+
+- set_fact: mysql_restore_databases={{ mysql_restore_s3_backup_list_result.stdout_lines }}
+  when: mysql_restore_s3_backup_list_result.stdout_lines is defined
+
+- name: Determine all imported databases
+  shell: find {{ mysql_restore_dir_realpath }} -name "*.imported" -exec basename {} \; | cut -d "." -f 1
+  register: mysql_restore_imported_result
+  changed_when: False
+
+- set_fact: mysql_restore_imported={{ mysql_restore_imported_result.stdout_lines | default([]) }}
+
+- include: restore.yml
+  with_items: "{{ mysql_restore_databases | difference(mysql_restore_imported) }}"
+  loop_control:
+    loop_var: database
