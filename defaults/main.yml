@@ -1,0 +1,29 @@
+---
+mysql_restore_name: "mysql-s3-restore"
+
+mysql_restore_aws_profile: "{{ mysql_restore_name }}"
+mysql_restore_aws_access_key: False
+mysql_restore_aws_secret_key: False
+mysql_restore_aws_region: eu-west-1
+mysql_restore_aws_format: text
+
+mysql_restore_dir: "/root/{{ mysql_restore_name }}"
+
+mysql_restore_system_user: root
+
+mysql_restore_innodb_row_format: COMPRESSED
+
+mysql_restore_remove_imported: True
+
+mysql_restore_databases: []
+
+mysql_restore_exclude_inserts: False
+
+mysql_restore_s3_bucket: False
+mysql_restore_s3_bucket_parent: False
+
+mysql_restore_s3_backup_extension: ".sql.gz.gpg"
+
+mysql_restore_gpg_secret_key: False
+mysql_restore_gpg_secret_dest: "~/{{ mysql_restore_name }}-gpg.asc"
+

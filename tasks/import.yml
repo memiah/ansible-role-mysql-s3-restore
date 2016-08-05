@@ -1,0 +1,14 @@
+---
+- name: Import SQL dumps into MySQL.
+  mysql_db: name={{ item.item }} state=import target={{ item.invocation.module_args.creates }}
+  with_items: "{{ mysql_restore_s3_decompress_result.results }}"
+  register: mysql_restore_s3_import_result
+
+- name: Flag processed databases as imported.
+  file: path={{ item.invocation.module_args.target }}.imported state=touch
+  with_items: "{{ mysql_restore_s3_import_result.results }}"
+
+- name: Remove imported databases.
+  file: path={{ mysql_restore_dir }}/{{ item }}.sql state=absent
+  with_items: "{{ mysql_restore_s3_backup_database_list }}"
+  when: mysql_restore_remove_imported == True

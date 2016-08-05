@@ -1,0 +1,8 @@
+---
+- include: gpg.yml
+  when: mysql_restore_gpg_secret_key != False
+
+- include: setup.yml
+- include: download.yml
+- include: process.yml
+- include: import.yml

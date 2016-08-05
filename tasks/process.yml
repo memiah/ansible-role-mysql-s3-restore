@@ -1,0 +1,39 @@
+---
+- name: List all downloaded databases.
+  shell: find {{ mysql_restore_dir }} -name "*{{ mysql_restore_s3_backup_extension }}" -exec basename {} \; | cut -d "." -f 1
+  register: mysql_restore_s3_backup_downloaded_result
+  changed_when: False
+
+- set_fact: mysql_restore_s3_backup_database_list={{ mysql_restore_s3_backup_downloaded_result.stdout_lines }}
+
+- name: Create databases for downloaded backups.
+  mysql_db: name={{ item }} state=present
+  with_items: "{{ mysql_restore_s3_backup_database_list | difference(mysql_restore_imported) }}"
+
+- name: Determine previously decrypted and decompressed files.
+  shell: find {{ mysql_restore_dir }} -name "*.sql" -exec basename {} \; | cut -d "." -f 1
+  register: mysql_restore_s3_backup_database_list_decompressed_result
+  changed_when: False
+
+- set_fact: mysql_restore_s3_backup_database_list_decompressed={{ mysql_restore_s3_backup_database_list_decompressed_result.stdout_lines | union(mysql_restore_imported) }}
+
+- name: Decrypt and decompress SQL dumps.
+  shell: gpg --decrypt {{ mysql_restore_dir }}/{{ item }}{{ mysql_restore_s3_backup_extension }} | gunzip > {{ mysql_restore_dir }}/{{ item }}.sql
+  args:
+    creates: "{{ mysql_restore_dir }}/{{ item }}.sql"
+  with_items: "{{ mysql_restore_s3_backup_database_list | difference(mysql_restore_s3_backup_database_list_decompressed) }}"
+  register: mysql_restore_s3_decompress_result
+
+- name: Remove compressed versions.
+  file: path={{ mysql_restore_dir }}/{{ item }}{{ mysql_restore_s3_backup_extension }} state=absent
+  with_items: "{{ mysql_restore_s3_backup_database_list }}"
+  when: mysql_restore_remove_imported == True
+
+- name: Set InnoDB row format.
+  replace: dest={{ mysql_restore_dir }}/{{ item }}.sql regexp='(ENGINE=InnoDB)(.*)(ROW_FORMAT=[\w]+)([^;]*);' replace='\1\2\4ROW_FORMAT={{ mysql_restore_innodb_row_format }};'
+  with_items: "{{ mysql_restore_s3_backup_database_list }}"
+  when: mysql_restore_innodb_row_format != False
+
+- name: Remove table exclusion inserts.
+  replace: dest={{ mysql_restore_dir }}/{{ item.keys() | first }}.sql regexp='^INSERT INTO `({{ item[item.keys() | first] | join('|') }})`.*$' replace=''
+  with_items: "{{ mysql_restore_exclude_inserts }}"
