@@ -22,7 +22,7 @@
   command: sed -i -E 's/(ENGINE=InnoDB)(.*)(ROW_FORMAT=[\w]+)([^;]*);/\1\2\4ROW_FORMAT={{ mysql_restore_innodb_row_format }};/g' {{ mysql_restore_dir }}/{{ database }}.sql
   when: mysql_restore_innodb_row_format != False
 
-- name: Remove database table insert exclusions.
+- name: Remove "{{ database }}" database table insert exclusions.
   replace: dest={{ mysql_restore_dir }}/{{ database }}.sql regexp='^INSERT INTO `({{ mysql_restore_exclude_inserts[database] | join('|') }})`.*$' replace=''
   when: mysql_restore_exclude_inserts[database] | length > 0
 
