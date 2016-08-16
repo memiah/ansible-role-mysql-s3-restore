@@ -52,63 +52,74 @@ For separation we create a new AWS profile for this script context, you
 could set this to `"default"` to ignore profiles.
 
     mysql_restore_aws_access_key: False
-    
+
 Your Amazon AWS access key.
 
     mysql_restore_aws_secret_key: False
-    
+
 Your Amazon AWS secret key.
 
     mysql_restore_aws_region: eu-west-1
-    
+
 Region name where the S3 bucket is located.
 
     mysql_restore_aws_format: text
 
 Output format from the AWS CLI.
-    
+
     mysql_restore_dir: "~/{{ mysql_restore_name }}"
-    
+
 Directory used to store downloaded SQL backups. 
 
     mysql_restore_system_user: root
 
 User that will own the AWS CLI profile.
-        
+
     mysql_restore_innodb_row_format: False
-    
+
 Use a ROW_FORMAT value to attempt setting the ROW_FORMAT for any CREATE TABLE statement. 
 To enable compression across all tables, you could set this to "COMPRESSED". Please note, 
 this would require you to have `innodb_file_format=Barracuda` in your my.cnf.
-    
+
     mysql_restore_remove_imported: True
 
 By default, the original downloaded file and uncompressed versions are deleted after they 
 are processed. Using `False` will keep these files in place.
 
     mysql_restore_databases: []
-    
+
 Optional list of databases you wish to restore, specified without the extension. 
 If no databases are deinfed, every database in the S3 bucket will be downloaded.
-    
+
+    mysql_restore_exclude_inserts: {}
+    # mysql_restore_exclude_inserts:
+    #   database_name_a:
+    #     - table_name_a
+    #     - table_name_b
+    #   database_name_b:
+    #     - table_name_c
+
+Optional hash / dict of database tables to exclude from the data import. Note 
+that the download process will still download the data from S3.
+
     mysql_restore_s3_bucket: False
     mysql_restore_s3_bucket_parent: False
-    
+
 Path to your S3 backups bucket. Only set one of these values. 
 If you set the s3_backup_parent_url it will expect this to contain a collection of 
 sub folders, e.g. daily backups, and will choose the latest (last in the list). 
 If you set s3_backup_url this should be a specific backup folder. It assumes the 
 backup folder contains one file per database, with the filename as the database name, 
 compressed with GZ and encrypted with GPG. Each filename should be of the format databasename.sql.gz.gpg 
-    
+
     mysql_restore_s3_backup_extension: ".sql.gz.gpg"
-    
+
 Extension used by the backups stored in s3.
-    
+
     mysql_restore_gpg_secret_key: False
-    
+
 GPG secret key that the backups are encrypted for.
-    
+
     mysql_restore_gpg_secret_dest: "~/{{ mysql_restore_name }}-gpg.asc"
 
 Location used to store the GPG secret key.

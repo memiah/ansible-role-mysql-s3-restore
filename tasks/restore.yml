@@ -23,8 +23,10 @@
   when: mysql_restore_innodb_row_format != False
 
 - name: Remove "{{ database }}" database table insert exclusions.
-  replace: dest={{ mysql_restore_dir }}/{{ database }}.sql regexp='^INSERT INTO `({{ mysql_restore_exclude_inserts[database] | join('|') }})`.*$' replace=''
-  when: mysql_restore_exclude_inserts[database] | length > 0
+  command: sed -i -E '/^INSERT INTO `({{ mysql_restore_exclude_inserts[database] | join('|') }}).*$`/d' {{ mysql_restore_dir }}/{{ database }}.sql
+  when:
+    - mysql_restore_exclude_inserts[database] is defined
+    - mysql_restore_exclude_inserts[database] | length > 0
 
 - name: Import "{{ database }}" database backup into MySQL.
   mysql_db: name={{ database }} state=import target={{ mysql_restore_dir }}/{{ database }}.sql
