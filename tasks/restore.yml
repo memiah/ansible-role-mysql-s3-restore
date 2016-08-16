@@ -19,11 +19,11 @@
   when: mysql_restore_remove_imported == True
 
 - name: Set "{{ database }}" database InnoDB row format.
-  command: sed -i -E 's/(ENGINE=InnoDB)(.*)(ROW_FORMAT=[\w]+)([^;]*);/\1\2\4ROW_FORMAT={{ mysql_restore_innodb_row_format }};/g' {{ mysql_restore_dir }}/{{ database }}.sql
+  command: sed -i -r -e 's/(ENGINE=InnoDB)(.*)(ROW_FORMAT=[\w]+)([^;]*);/\1\2\4ROW_FORMAT={{ mysql_restore_innodb_row_format }};/g' {{ mysql_restore_dir }}/{{ database }}.sql
   when: mysql_restore_innodb_row_format != False
 
 - name: Remove "{{ database }}" database table insert exclusions.
-  command: sed -i -E '/^INSERT INTO `({{ mysql_restore_exclude_inserts[database] | join('|') }}).*$`/d' {{ mysql_restore_dir }}/{{ database }}.sql
+  command: sed -i -r -e '/^INSERT INTO `({{ mysql_restore_exclude_inserts[database] | join('|') }})`/d' {{ mysql_restore_dir }}/{{ database }}.sql
   when:
     - mysql_restore_exclude_inserts[database] is defined
     - mysql_restore_exclude_inserts[database] | length > 0
